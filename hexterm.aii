@@ -1,0 +1,175 @@
+*******************************************************
+***
+*** Hex Output Terminal Tool
+*** Copyright (C) 1992 Morgan Davis
+*** MPW IIGS Assembler
+***
+
+	MACHINE	M65C02
+	longa	off
+	longi	off
+	case	on
+	INCLUDE	'OMM.equ'
+	INCLUDE	'PortTool.equ'
+
+a1	equ $3c
+prmtbl	equ $e0
+chrgot	equ $b7
+
+ch80	equ $057b
+
+kbd	equ $c000
+strb	equ $c010
+cmdkey	equ $c061
+
+chkcom	equ $debe
+getbyte	equ $e6f8
+bs	equ $fc10
+up	equ $fc1a
+lf	equ $fc66
+prbyte	equ $fdda
+cout	equ $fded
+
+term	PROC
+hVERS	DC.W $0000
+hID	DC.W 'tm'
+hSIZE	DC.W END-START
+hORG	DC.W START
+hAMPC	DC.W amperc
+hKIND	DC.W $0000
+hRSRV1	DC.W $0000
+hRSRV2	DC.W $0000
+
+START	cmp #MSG_AMPR		;ampersand call?
+	beq doampr		;yes
+	cmp #MSG_DIED		;module death?
+	beq dodeath
+	cmp #MSG_BORN		;module birth?
+	beq dobirth
+	cmp #MSG_INFO		;get info string?
+	bne ctrts
+
+doinfo	lda a_info
+	sta a1
+	lda a_info+1
+	sta a1+1
+ctrts	rts
+
+callpt	ldx ptindex		;function in Y
+	beq ctrts		;oops no tool!
+	jmp OMMVEC		;call the Port Tool
+
+dobirth
+dodeath
+	lda #<PT_ID		;get port tool index
+	sta a1
+	lda #>PT_ID
+	sta a1+1
+	jsr ommid
+	stx ptindex		;save it
+	rts
+
+ommid	ldx #OMM_ID
+	ldy #OMM_GETID
+	jmp OMMVEC
+
+*------------------------------*
+* Ampersand Command Dispatcher *
+*------------------------------*
+
+doampr	jsr chrgot		;any arguments?
+	beq termread		;no
+
+	jsr getbyte		;get flag in X
+
+*------------------------------*
+*      Terminal Mode Loop      *
+*------------------------------*
+
+termread
+	jsr updateTerm		;update display
+	ldy #SerGetDCD		;check DCD
+	jsr callpt
+	bcc tmnocar		;none, so quit
+
+keyread
+	lda kbd			;check keyboard
+	bpl termread
+
+	bit cmdkey		;check Command key
+	sta strb		;clear keyboard
+	bmi tmq			;got a command
+
+	and #$7F		;send key to port
+	sta prmtbl
+	ldy #SerWriteChar
+	jsr callpt
+	bra termread		;loop back for more
+
+*------------------------------*
+*      Exit Terminal Mode      *
+*------------------------------*
+
+tmnocar	lda #0
+tmq	sta result		;save exit code
+	jsr chrgot		;return it? 
+	beq elret		;no
+
+	jsr chkcom		;skip comma
+	lda result
+	sta a1
+	stz a1+1
+	ldy #OMM_PUTWORD
+	ldx #OMM_ID
+	jmp OMMVEC		;return result code
+
+*------------------------------*
+*        Update Display        *
+*------------------------------*
+
+updateTerm
+	ldy #SerReadChar	;serial input?
+	jsr callpt
+	bcs termout		;yes
+
+elret	rts
+
+termout	pha
+	ora #$80		;make it printable
+	cmp #$A0		;check for control
+	bcs tocout
+
+	and #$7F		;invert controls
+	ora #$40
+tocout	jsr cout		;print character
+	jsr bs			;back up
+	jsr lf			;go down
+	pla			;get real byte
+	jsr prbyte		;print it in hex
+	lda ch80		;check for wrap
+	beq elret
+
+	jmp up			;no wrap, so go up
+
+*------------------------------*
+*         Data Section         *
+*------------------------------*
+
+	dc.b $00		;start of immed
+
+table
+a_info	dc.w info			
+	dc.w $0000		;start of data
+
+amperc	dc.b 'TERM',0		;&TERM invokes this
+	dc.b -1
+
+	msb on
+info	dc.b '18-May-92 HexTerm 1.0'
+	msb off
+
+ptindex	ds.b 1			;index to Port Tool
+result	ds.b 1			;exit code
+END
+	ENDP
+	END
