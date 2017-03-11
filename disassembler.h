@@ -20,6 +20,7 @@ class disassembler {
 			explicit_implied_a = 4,
 			// and & 07f hexdump
 			msb_hexdump = 8,
+			track_rep_sep = 16,
 
 			orca = jml_indirect_modifier | explicit_implied_a,
 			mpw = jml_indirect_modifier,

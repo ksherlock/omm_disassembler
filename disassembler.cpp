@@ -689,13 +689,15 @@ void disassembler::operator()(uint8_t byte) {
 	uint8_t op = _op;
 	uint32_t arg = _arg;
 
-	switch(_op) {
-		case 0xc2: // REP
-			_flags |= (_arg & 0x30);
-			break;
-		case 0xe2: // SEP
-			_flags &= ~(_arg & 0x30);
-			break;
+	if (_traits & track_rep_sep) {
+		switch(_op) {
+			case 0xc2: // REP
+				_flags |= (_arg & 0x30);
+				break;
+			case 0xe2: // SEP
+				_flags &= ~(_arg & 0x30);
+				break;
+		}
 	}
 
 	// all done... now print it.
