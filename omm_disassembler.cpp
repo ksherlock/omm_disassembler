@@ -171,6 +171,7 @@ omm_disassembler::format_data(unsigned size, const std::string &data) {
 std::string omm_disassembler::ds() const { return "ds.b"; }
 
 int32_t omm_disassembler::next_label(int32_t pc) {
+	if (_labels.empty()) return -1;
 	if (pc == -1) return _labels.back();
 
 	while (!_labels.empty()) {
@@ -359,7 +360,7 @@ void disasm(const std::string &path) {
 			end_immediate = iter - 2;
 			break;
 		}
-		labels.push_back(x);
+		if (x >= h.org) labels.push_back(x);
 		labels.push_back(offset);
 	}
 
@@ -403,7 +404,12 @@ void disasm(const std::string &path) {
 
 	d.emit("", "dc.w", "end-start", "size " + d.to_x(h.size,4,'$'));
 	d.emit("", "dc.w", d.to_x(h.org,4,'$'), "org");
-	d.emit("", "dc.w", d.to_x(h.amperct,4,'_'), "ampersand table");
+	if (h.amperct) {
+		d.emit("", "dc.w", d.to_x(h.amperct,4,'_'), "ampersand table");
+	} else {
+	d.emit("", "dc.w", d.to_x(h.amperct,4,'$'), "ampersand table");
+
+	}
 	d.emit("", "dc.w", d.to_x(h.kind,4,'$'), "kind");
 	d.emit("", "dc.w", d.to_x(h.res1,4,'$'), "reserved");
 	d.emit("", "dc.w", d.to_x(h.res2,4,'$'), "reserved");
@@ -438,7 +444,10 @@ void disasm(const std::string &path) {
 
 	for ( ; iter != end_immediate; ) {
 		auto x = read_16(iter);
-		d(d.to_x(x, 4, '_'), 2, x);
+		std::string tmp;
+		if (x < h.org) tmp = d.to_x(x, 4,'$');
+		else tmp = d.to_x(x, 4, '_');
+		d(tmp, 2, x);
 	}
 	d("0", 2);
 	d.flush();
@@ -456,7 +465,7 @@ void disasm(const std::string &path) {
 	for (; iter != end; ++iter) {
 		d(*iter);
 	}
-
+	d.flush();
 	puts("");
 	d.emit("end");
 	d.emit("","end");
