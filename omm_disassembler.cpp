@@ -14,6 +14,18 @@
 #include <unistd.h>
 
 
+std::string tokens[] = {
+#undef _
+#undef __
+#define __(x) #x
+#define _(a,b,c) __(tk ## b) ,
+#include "applesoft_tokens.h"
+#undef _
+#undef __
+};
+
+
+
 class omm_disassembler final : public disassembler {
 
 public:
@@ -147,7 +159,7 @@ omm_disassembler::format_data(unsigned size, const uint8_t *data) {
 		tmp += to_x(data[i], 2, '$');
 	}
 
-	return std::make_pair("db", tmp);
+	return std::make_pair("dc.b", tmp);
 }
 
 std::pair<std::string, std::string>
@@ -327,6 +339,7 @@ void disasm(const std::string &path) {
 
 
 	std::vector<unsigned> labels;
+	std::pair<unsigned, unsigned> address_space = std::make_pair(h.org, h.org + h.size);
 
 	if (h.amperct) labels.push_back(h.amperct);
 
@@ -461,6 +474,46 @@ void disasm(const std::string &path) {
 	puts("");
 
 	// free-form data (may include code!)
+
+	if (h.amperct) {
+		auto xend = begin + (h.amperct - h.org);
+
+		for (; iter != xend; ++iter) {
+			d(*iter);
+		}
+		d.flush();
+
+		// custom parser for the ampersand table.
+
+		std::string tmp;
+		unsigned pc = d.pc();
+		puts("");
+		d.emit("amperct");
+		for (; iter != end; ++iter, ++pc) {
+			uint8_t c= *iter;
+			if (isascii(c) && isprint(c)) {
+				if (tmp.empty()) tmp.push_back('\'');
+				tmp.push_back(c);
+				continue;
+			}
+			if (!tmp.empty()) {
+				if(tmp.front() == '\'') tmp.push_back('\'');
+				if (!c) tmp += ", 0";
+				d.emit("","dc.b", tmp);
+				tmp.clear();
+				if (!c) continue;
+			}
+			if (c >= 0x80 && c <= 0xea) {
+				tmp = tokens[c - 0x80];
+				continue;
+			}
+			d.emit("","dc.b", d.to_x(c, 2, '$'));
+			if (c == 0xff) { ++iter; ++pc; break; }
+		}
+		puts("");
+		d.set_pc(pc);
+	}
+
 
 	for (; iter != end; ++iter) {
 		d(*iter);
