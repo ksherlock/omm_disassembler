@@ -14,6 +14,7 @@
 
 a1	equ $3c
 prmtbl	equ $e0
+chrget	equ $b1
 chrgot	equ $b7
 
 ch80	equ $057b
@@ -29,6 +30,7 @@ up	equ $fc1a
 lf	equ $fc66
 prbyte	equ $fdda
 cout	equ $fded
+crout	equ $fd8e
 
 term	PROC
 hVERS	DC.W $0000
@@ -77,10 +79,10 @@ ommid	ldx #OMM_ID
 * Ampersand Command Dispatcher *
 *------------------------------*
 
-doampr	jsr chrgot		;any arguments?
-	beq termread		;no
+doampr	jsr nextarg		;eat up all the arguments
+	bne doampr		;
 
-	jsr getbyte		;get flag in X
+	jsr crout		; print cr
 
 *------------------------------*
 *      Terminal Mode Loop      *
@@ -115,7 +117,6 @@ tmq	sta result		;save exit code
 	jsr chrgot		;return it? 
 	beq elret		;no
 
-	jsr chkcom		;skip comma
 	lda result
 	sta a1
 	stz a1+1
@@ -151,6 +152,43 @@ tocout	jsr cout		;print character
 
 	jmp up			;no wrap, so go up
 
+	; get the amersand command argument.
+	; TERM [ (number1)] [,number2]
+	; number1 = full(0) or half(1) duplex echo
+	; number2 = exit code
+nextarg
+	jsr chrgot
+	beq @eol1
+	cmp #'('
+	beq @lparen
+	cmp #')'
+	beq @rparen
+	cmp #','
+	bne @skip
+
+@lparen
+	jsr chrget
+@skip
+	jsr getbyte
+	txa
+	beq @zero
+	ldx #-1
+@zero
+	lda #1
+@eol1
+	rts
+
+	; ')' must be followed by , or eol.
+	; in either case, return 0 to stop parsing.
+@rparen
+	jsr chrget
+	jsr chrgot ; redundant!
+	beq @eol2
+	jsr chkcom ; syntax error if not comma
+	lda #0
+@eol2
+	rts
+	
 *------------------------------*
 *         Data Section         *
 *------------------------------*
@@ -165,7 +203,8 @@ amperc	dc.b 'TERM',0		;&TERM invokes this
 	dc.b -1
 
 	msb on
-info	dc.b '18-May-92 HexTerm 1.0'
+info	dc.b '20-May-94 HexTerm 3.1'
+	dc.b $00 ; cstring
 	msb off
 
 ptindex	ds.b 1			;index to Port Tool
