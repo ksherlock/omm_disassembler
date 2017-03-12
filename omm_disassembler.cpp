@@ -489,27 +489,51 @@ void disasm(const std::string &path) {
 		unsigned pc = d.pc();
 		puts("");
 		d.emit("amperct");
+
+		// usually token, 0 or 'text', 0
+		// but could include: 
+		// ON 'HANGUP' GOTO
+
+		bool quoted = false;
+
 		for (; iter != end; ++iter, ++pc) {
 			uint8_t c= *iter;
 			if (isascii(c) && isprint(c)) {
-				if (tmp.empty()) tmp.push_back('\'');
+				if (!quoted) { tmp.push_back('\''); quoted = true; }
 				tmp.push_back(c);
 				continue;
 			}
+
 			if (!tmp.empty()) {
-				if(tmp.front() == '\'') tmp.push_back('\'');
-				if (!c) tmp += ", 0";
-				d.emit("","dc.b", tmp);
-				tmp.clear();
-				if (!c) continue;
+				if (quoted) {
+					quoted = false;
+					tmp.push_back('\'');
+					tmp += ", ";
+				}
+
+				if (c == 0x00) {
+					tmp += "0";
+					d.emit("","dc.b", tmp);
+					tmp.clear();
+					continue;
+				}
 			}
+
 			if (c >= 0x80 && c <= 0xea) {
-				tmp = tokens[c - 0x80];
+				tmp += tokens[c - 0x80];
+				tmp += ", ";
 				continue;
 			}
-			d.emit("","dc.b", d.to_x(c, 2, '$'));
-			if (c == 0xff) { ++iter; ++pc; break; }
+
+			d.emit("", "dc.b", d.to_x(c, 2, '$'));
+			if (c == 0xff) {
+				++pc;
+				++iter;
+				break;
+			}
 		}
+
+
 		puts("");
 		d.set_pc(pc);
 	}
