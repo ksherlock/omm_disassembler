@@ -2,6 +2,7 @@
 #include <err.h>
 #include <cxx/endian.h>
 #include <cxx/mapped_file.h>
+#include <cxx/vector.h>
 
 #include "disassembler.h"
 
@@ -190,7 +191,12 @@ int32_t omm_disassembler::next_label(int32_t pc) {
 		auto address = _labels.back();
 		if (address > pc) return address;
 
-		if (address == pc) emit(to_x(address,4,'_'));
+
+		if (address == pc) {
+			std::string tmp = label_for_address(pc);
+			if (tmp.empty()) tmp = to_x(address,4,'_');
+			emit(tmp);
+		}
 		else {
 			warnx("Unable to place label _%04x",
 				address);
@@ -340,8 +346,11 @@ void disasm(const std::string &path) {
 
 	std::vector<unsigned> labels;
 	std::pair<unsigned, unsigned> address_space = std::make_pair(h.org, h.org + h.size);
+	std::pair<unsigned, unsigned> code_address_space;
+	std::pair<unsigned, unsigned> data_address_space;
+	std::pair<unsigned, unsigned> immediate_address_space;
 
-	if (h.amperct) labels.push_back(h.amperct);
+
 
 
 	const auto begin = mf.begin() + 16;
@@ -351,20 +360,35 @@ void disasm(const std::string &path) {
 	auto end_immediate = mf.end();
 	//auto end_data = mf.end();
 
+	code_address_space.first = h.org;	
+
+	analyzer anna;
+	anna.set_m(false);
+	anna.set_x(false);
+	anna.set_pc(h.org);
+
 	auto iter = begin;
 	for ( ; iter != end; ++iter) {
 		uint8_t op = *iter;
-		if (op == 0) {
+		if (op == 0 && anna.state()) {
 			end_code = iter;
+			++iter;
 			break; // for version 1, break is allowed... but 3 0s terminates.
 		}
-		iter += disassembler::operand_size(op, false, false);
+		anna(op);
 	}
 
+	labels = anna.finish();
+	erase_if(labels, [&address_space](uint32_t x){
+		return x < address_space.first || x > address_space.second;
+	});
 
-	++iter; // skip the 0.
+	if (h.amperct) labels.push_back(h.amperct);
+
 	unsigned offset = std::distance(begin, iter) + h.org;
 
+	code_address_space.second = offset - 1;
+	immediate_address_space.first = offset;
 
 	// immediate table (keep references)
 	for (; iter != end; offset += 2) {
@@ -373,16 +397,20 @@ void disasm(const std::string &path) {
 			end_immediate = iter - 2;
 			break;
 		}
-		if (x >= h.org) labels.push_back(x);
-		labels.push_back(offset);
+		if (x >= address_space.first && x < address_space.second) labels.push_back(x);
+		//labels.push_back(offset);
 	}
 
+	immediate_address_space.second = offset - 2;
 	// data!
+
+	data_address_space.first = offset;
+	data_address_space.second = h.org + h.size;
 
 	std::sort(labels.begin(), labels.end(), std::greater<unsigned>());
 	labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
-	omm_disassembler d(labels);
 
+	omm_disassembler d(labels);
 
 	d.set_pc(h.org);
 	d.set_m(false);
