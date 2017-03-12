@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 // disassembler traits
 
@@ -135,6 +136,59 @@ class disassembler {
 		unsigned _traits = 0;
 
 		void check_labels();
+};
+
+class analyzer {
+
+public:
+
+	analyzer(unsigned traits = 0) : _traits(traits)
+	{}
+
+	void set_pc(uint32_t pc) { _pc = pc; }
+	uint32_t pc() const { return _pc; }
+
+
+	bool m() const { return _flags & 0x20; }
+	bool x() const { return _flags & 0x10; }
+
+	void set_m(bool x) {
+		if (x) _flags |= 0x20;
+		else _flags &= ~0x20;
+	}
+
+	void set_x(bool x) {
+		if (x) _flags |= 0x10;
+		else _flags &= ~0x10;
+	}
+
+
+
+	void operator()(uint8_t x);
+	void operator()(uint32_t x, unsigned size);
+
+
+	const std::vector<uint32_t> &finish();
+
+	bool state() const { return _st == 0; }
+
+private:
+
+	void reset();
+	void process();
+
+	unsigned _traits = 0;
+	int _inline_data = 0;
+	bool _code = true;
+	unsigned _st = 0;
+	uint8_t _op = 0;
+	unsigned _size = 0;
+	unsigned _flags = 0x30;
+	unsigned _pc = 0;
+	unsigned _arg = 0;
+	unsigned _mode = 0;
+
+	std::vector<uint32_t> _labels;
 };
 
 #endif

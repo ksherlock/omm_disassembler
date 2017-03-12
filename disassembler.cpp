@@ -902,3 +902,89 @@ void disassembler::print(const std::string &expr) {
 	_pc += _size + 1;
 	reset();	
 }
+
+
+#pragma mark -
+
+const std::vector<uint32_t> &analyzer::finish() {
+	std::sort(_labels.begin(), _labels.end());
+	auto end = std::unique(_labels.begin(), _labels.end());
+	_labels.erase(end, _labels.end());
+	return _labels;
+}
+
+
+void analyzer::operator()(uint8_t byte) {
+
+
+	if (!_code) {
+
+		if (_inline_data && --_inline_data <= 0) {
+			_code = true;
+			reset();
+			return;
+		}
+		return;
+	}
+
+	_st++;
+	if (_st == 1) {
+		_op = byte;
+		_mode = modes[_op];
+
+		_size = _mode & 0x0f;
+		if (_mode & _flags & m_I) _size++;
+		if (_mode & _flags & m_M) _size++;
+
+		if (!_size) { reset(); }
+		return;
+	}
+	unsigned shift = (_st - 2) * 8;
+	_arg = _arg + (byte << shift);
+	if (_st <= _size) return;
+
+
+	// all done... now process it
+	process();
+}
+
+void analyzer::reset() {
+	_pc += _st;
+	_arg = 0;
+	_st = 0;
+}
+
+void analyzer::process() {
+
+	if (_traits & disassembler::track_rep_sep) {
+		switch(_op) {
+			case 0xc2: // REP
+				_flags |= (_arg & 0x30);
+				break;
+			case 0xe2: // SEP
+				_flags &= ~(_arg & 0x30);
+				break;
+		}
+	}
+
+	switch (_mode & 0xf000) {
+		case mRelative: {
+
+			uint32_t pc = _pc + 1 + _size + _arg;
+
+			if ((_size == 1) && (_arg & 0x80))
+				pc += 0xff00;
+			pc &= 0xffff;
+
+			_labels.push_back(pc);
+			break;
+		}
+		case mAbsolute:
+		case mAbsoluteI:
+		case mAbsoluteLong: {
+			_labels.push_back(_arg);
+			break;
+		}
+	}
+	reset();
+}
