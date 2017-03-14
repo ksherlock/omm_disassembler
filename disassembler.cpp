@@ -623,8 +623,8 @@ void disassembler::space(unsigned size) {
 
 void disassembler::operator()(const std::string &expr, unsigned size, uint32_t value) {
 
-	// todo -- what if label within size?
-	check_labels();
+	if (_st == 0 || !_code)
+		check_labels();
 
 	if (!_code) {
 		dump(expr, size, value);
@@ -650,7 +650,8 @@ void disassembler::operator()(const std::string &expr, unsigned size, uint32_t v
 
 void disassembler::operator()(uint8_t byte) {
 
-	check_labels();
+	if (_st == 0 || !_code)
+		check_labels();
 
 	if (!_code) {
 		_bytes[_st++] = byte;
