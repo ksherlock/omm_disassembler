@@ -47,14 +47,17 @@ protected:
 	virtual int32_t next_label(int32_t pc);
 
 	virtual std::string label_for_address(uint32_t address);
+	virtual std::string label_for_zp(uint32_t address);
+
 
 private:
 	std::vector<unsigned> _labels;
 	std::unordered_map<unsigned, std::string> _label_map;
+	std::unordered_map<unsigned, std::string> _zp_label_map;
 };
 
 omm_disassembler::omm_disassembler(std::vector<unsigned> &labels)
-	 : disassembler(disassembler::mpw | disassembler::msb_hexdump),
+	 : disassembler(disassembler::mpw | disassembler::msb_hexdump | disassembler::bit_hacks),
 	 _labels(labels)
 {
 
@@ -63,14 +66,21 @@ omm_disassembler::omm_disassembler(std::vector<unsigned> &labels)
 
 	_label_map.insert({
 
+		// zp but called as jsr $00xx
 		_(0xb1, chrget),
 		_(0xb7, chrgot),
 
 		 // usraddr
 		_(0x03f8, ommvec),
 		_(0x057b, ch80),
+
+		_(0xbe6c, vpath1),
+		_(0xbe6e, vpath2),
+
 		_(0xc000, kbd),
 		_(0xc010, strb),
+		_(0xc019, rdvblbar),
+		_(0xc036, cyareg),
 		_(0xc061, cmdkey),
 
 
@@ -140,12 +150,83 @@ omm_disassembler::omm_disassembler(std::vector<unsigned> &labels)
 		_(0xfdda, prbyte),
 		_(0xfded, cout),
 
-
 	});
+
 
 	for (auto x : labels) {
 		_label_map.emplace(x, to_x(x,4,'_'));
 	}
+
+
+	_zp_label_map = {
+
+		_(0x00, d0),
+		_(0x01, d1),
+		_(0x02, d2),
+		_(0x03, d3),
+		_(0x04, strsav),
+		_(0x0a, usrjmp),
+		_(0x11, valtyp),
+		_(0x19, number),
+		_(0x1a, shapel),
+		_(0x1c, hcolor1),
+		_(0x20, wndlft),
+		_(0x21, wndwid),
+		_(0x22, wndtop),
+		_(0x23, wndbot),
+		_(0x24, ch),
+		_(0x25, cv),
+		_(0x28, basl), 
+		_(0x32, invflg),
+		_(0x33, prompt),
+		_(0x36, cswl),
+		_(0x38, kswl),
+		_(0x3c, a1),
+		_(0x3e, a2),
+		_(0x42, a4),
+		_(0x4e, rndl),
+		_(0x50, linnum),
+		_(0x52, temptr),
+		_(0x5e, index),
+		_(0x6d, strend),
+		_(0x6f, fretop),
+		_(0x71, frespc),
+		_(0x73, himem),
+		_(0x75, curlin),
+		_(0x81, varnam),
+		_(0x83, varpnt),
+		_(0x85, forpnt),
+		_(0x9b, lowtr),
+		_(0x9d, fac),
+		_(0xa0, strptr),
+		_(0xa2, facsgn),
+		_(0xb1, chrget),
+		_(0xb7, chrgot),
+		_(0xb8, txtptr),
+		_(0xd8, errflg),
+		_(0xda, errlin),
+		_(0xde, errnum),
+		//_(0xe4, hcolorz),
+		_(0xf8, remstk),
+		_(0xfa, varptr),
+		_(0xfd, varptr2),
+		_(0xe9, zfree1),
+		_(0xef, zfree2),
+		_(0xf0, zfree3),
+
+
+		{ 0x3d, "a1+1" },
+		{ 0x4f, "rndl+1" },
+		{ 0xb9, "txtptr+1" },
+		{ 0x51, "linum+1" },
+
+		{ 0xe0, "prmtbl" },
+		{ 0xe1, "prmtbl+1" },
+		{ 0xe2, "prmtbl+2" },
+		{ 0xe3, "prmtbl+3" },
+		{ 0xe4, "prmtbl+4" },
+		{ 0xe5, "prmtbl+5" },
+	};
 
 	recalc_next_label();
 }
@@ -216,6 +297,13 @@ std::string omm_disassembler::label_for_address(uint32_t address) {
 	return iter->second;
 }
 
+std::string omm_disassembler::label_for_zp(uint32_t address) {
+
+	auto iter = _zp_label_map.find(address);
+	if (iter == _label_map.end()) return "";
+
+	return iter->second;
+}
 
 
 #pragma pack(push, 1)

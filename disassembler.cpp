@@ -671,6 +671,14 @@ void disassembler::operator()(uint8_t byte) {
 		_op = byte;
 		_mode = modes[_op];
 
+		// bit hack
+		if (_traits & bit_hacks && _op == 0x2c) {
+			if (_next_label == _pc + 1) {
+				dump();
+				return;
+			}
+		}
+
 		if (_traits & pea_immediate && _op == 0xf4) _mode = 2 | mImmediate;
 		_size = _mode & 0x0f;
 		if (_mode & _flags & m_I) _size++;
@@ -814,6 +822,7 @@ void disassembler::hexdump(std::string &line) {
 
 
 std::string disassembler::label_for_address(uint32_t address) { return ""; }
+std::string disassembler::label_for_zp(uint32_t address) { return ""; }
 
 void disassembler::print() {
 
@@ -843,15 +852,24 @@ void disassembler::print() {
 					+ to_x((_arg >> 0) & 0xff, 2, '$');
 				break;
 			}
+			case mDP:
+			case mDPI:
+			case mDPIL:
+				tmp = label_for_zp(_arg);
+				if (tmp.empty()) tmp = to_x(_arg, _size * 2, '$');
+				break;
+
 			//case mImmediate:
 			case mAbsolute:
 			case mAbsoluteI:
 			case mAbsoluteIL:
 			case mAbsoluteLong:
 				tmp = label_for_address(_arg);
-				// fall through
-			default:
 				if (tmp.empty()) tmp = to_x(_arg, _size * 2, '$');
+				break;
+
+			default:
+				tmp = to_x(_arg, _size * 2, '$');
 				break;
 		}
 		print(tmp);

@@ -22,9 +22,10 @@ class disassembler {
 			// and & 07f hexdump
 			msb_hexdump = 8,
 			track_rep_sep = 16,
+			bit_hacks = 32,
 
 			orca = jml_indirect_modifier | explicit_implied_a,
-			mpw = jml_indirect_modifier,
+			mpw = jml_indirect_modifier | explicit_implied_a,
 			wdc = pea_immediate,
 		};
 
@@ -87,6 +88,7 @@ class disassembler {
 		virtual std::pair<std::string, std::string> format_data(unsigned size, const std::string &);
 
 		virtual std::string label_for_address(uint32_t address);
+		virtual std::string label_for_zp(uint32_t address);
 
 
 		virtual std::string ds() const { return "ds"; }

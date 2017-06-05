@@ -26,13 +26,13 @@ o/%.o : %.cpp
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
 
 
-hexterm : hexterm.omf
-	mpw makebiniigs -org \$$0ff0 -p -s  -o $@ $^
+% : %.omf
+	mpw makebiniigs -org \$$0ff0 -t \$$2b -at \$$8006 -p -s  -o $@ $^
 
 
 
-hexterm.omf : hexterm.o
-	mpw linkiigs -x -o $@ $^
+%.omf : %.o
+	mpw linkiigs -p -l -x -o $@ $^
 
-hexterm.o : hexterm.aii
-	mpw asmiigs -i "{MPW}Interfaces:ModemWorks" -o $@ $^
+%.o : %.aii
+	mpw asmiigs -p -l -i "{MPW}Interfaces:ModemWorks" -o $@ $^
