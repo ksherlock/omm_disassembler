@@ -9,7 +9,7 @@ VPATH = cxx/src
 all: omm_disassembler hexterm
 .PHONY: clean
 clean:
-	$(RM) hexterm hexterm.omf hexterm.o
+	$(RM) hexterm hexterm.omf hexterm.o omm_disassembler o/*
 
 
 o:
