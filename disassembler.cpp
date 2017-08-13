@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include <algorithm>
 
 static constexpr const char opcodes[] = 
 	"brkoracoporatsboraaslora"
