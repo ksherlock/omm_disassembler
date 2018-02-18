@@ -847,10 +847,19 @@ void disassembler::print() {
 				break;
 			}
 			case mBlockMove: {
-				// todo -- verify order.
-				tmp = to_x((_arg >> 8) & 0xff, 2, '$')
-					+ ","
-					+ to_x((_arg >> 0) & 0xff, 2, '$');
+				// orca/mpw pretend it's a 24-bit address.
+				unsigned src = (_arg >> 8) & 0xff;
+				unsigned dest = (_arg >> 0) & 0xff;
+				if (_traits & block_move_high) {
+					tmp = to_x(src << 16, 6, '$')
+						+ ","
+						+ to_x(dest << 16, 6, '$');
+
+				} else {
+					tmp = to_x(src, 2, '$')
+						+ ","
+						+ to_x(dest, 2, '$');
+				}
 				break;
 			}
 			case mDP:

@@ -23,9 +23,11 @@ class disassembler {
 			msb_hexdump = 8,
 			track_rep_sep = 16,
 			bit_hacks = 32,
+			// mvn $010000,$020000 vs mvn $01,$02
+			block_move_high = 64,
 
-			orca = jml_indirect_modifier | explicit_implied_a,
-			mpw = jml_indirect_modifier | explicit_implied_a,
+			orca = jml_indirect_modifier | explicit_implied_a | block_move_high,
+			mpw = jml_indirect_modifier | explicit_implied_a | block_move_high,
 			wdc = pea_immediate,
 		};
 
