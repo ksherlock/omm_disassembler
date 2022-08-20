@@ -461,9 +461,12 @@ void disasm(const std::string &path) {
 	for ( ; iter != end; ++iter) {
 		uint8_t op = *iter;
 		if (op == 0 && anna.state()) {
-			end_code = iter;
-			++iter;
-			break; // for version 1, break is allowed... but 3 0s terminates.
+			// version 1 requires 3 0s to terminate code.
+			if (h.version == 0 || (anna.op() == 0 && anna.arg() == 0)) {
+				end_code = iter;
+				++iter;
+				break;
+			}
 		}
 		anna(op);
 	}
