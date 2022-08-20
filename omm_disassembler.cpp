@@ -143,6 +143,8 @@ omm_disassembler::omm_disassembler(std::vector<unsigned> &labels)
 		_(0xe5fd, frestr),
 		_(0xe6f8, getbyte),
 		_(0xe752, getadr),
+		_(0xed24, prdec),
+		_(0xf941, prntax),
 		_(0xfc10, bs),
 		_(0xfc1a, up),
 		_(0xfc66, lf),
