@@ -631,7 +631,10 @@ void disassembler::operator()(const std::string &expr, unsigned size, uint32_t v
 		dump(expr, size, value);
 		if (_inline_data) {
 			_inline_data -= size;
-			if (_inline_data <= 0) _code = true; 
+			if (_inline_data <= 0) {
+				_prodos_mli = 0;
+				_code = true;
+			}
 		}
 		return;
 	}
@@ -656,6 +659,30 @@ void disassembler::operator()(uint8_t byte) {
 
 	if (!_code) {
 		_bytes[_st++] = byte;
+
+		if (_prodos_mli) {
+			unsigned addr;
+			std::string label;
+			--_inline_data;
+			switch(--_prodos_mli) {
+				case 0:
+					// parameter list (2-bytes)
+					addr = _bytes[0] | (_bytes[1] << 8);
+					label = label_for_address(addr);
+					if (label.empty()) dump();
+					else {
+						_st = 0;
+						dump(label, 2, addr);
+					}
+					_code = true;
+				case 1:
+					break;
+				case 2:
+					dump(); // command (1-byte)
+					break;
+			}
+			return;
+		}
 
 		if (_inline_data && --_inline_data <= 0) {
 			dump();
@@ -726,6 +753,11 @@ void disassembler::operator()(uint8_t byte) {
 			break;
 	}
 
+	if (op == 0x20 && arg == 0xbf00) {
+		_prodos_mli = 3;
+		_inline_data = 3;
+		_code = false;
+	}
 
 
 }
@@ -948,6 +980,23 @@ void analyzer::operator()(uint8_t byte) {
 
 	if (!_code) {
 
+		if (_prodos_mli) {
+			_st++;
+			switch(--_prodos_mli) {
+				case 0:
+					_arg |= byte << 8;
+					_labels.push_back(_arg);
+					reset();
+					_code = true;
+					break;
+				case 1:
+					_arg = byte;
+				case 2:
+					// byte is cmd number.
+					break;
+			}
+		}
+
 		if (_inline_data && --_inline_data <= 0) {
 			_code = true;
 			reset();
@@ -958,6 +1007,7 @@ void analyzer::operator()(uint8_t byte) {
 
 	_st++;
 	if (_st == 1) {
+		_arg = 0;
 		_op = byte;
 		_mode = modes[_op];
 
@@ -979,7 +1029,6 @@ void analyzer::operator()(uint8_t byte) {
 
 void analyzer::reset() {
 	_pc += _st;
-	_arg = 0;
 	_st = 0;
 }
 
@@ -1014,6 +1063,11 @@ void analyzer::process() {
 			_labels.push_back(_arg);
 			break;
 		}
+	}
+	if (_op == 0x20 && _arg == 0xbf00) {
+		_code = false;
+		_prodos_mli = 3;
+		return;
 	}
 	reset();
 }

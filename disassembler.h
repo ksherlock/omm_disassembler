@@ -135,6 +135,7 @@ class disassembler {
 
 		bool _code = true;
 		int _inline_data = 0;
+		int _prodos_mli = 0;
 		int32_t _next_label = -1;
 
 		unsigned _traits = 0;
@@ -175,6 +176,8 @@ public:
 	const std::vector<uint32_t> &finish();
 
 	bool state() const { return _st == 0; }
+	unsigned op() const { return _op; }
+	unsigned arg() const { return _arg; }
 
 private:
 
@@ -191,6 +194,7 @@ private:
 	unsigned _pc = 0;
 	unsigned _arg = 0;
 	unsigned _mode = 0;
+	int _prodos_mli = 0;
 
 	std::vector<uint32_t> _labels;
 };
